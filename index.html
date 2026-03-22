@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRX Live - Modern UI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #0f172a; display: flex; justify-content: center; padding: 10px; color: #f8fafc; overflow-x: hidden; margin: 0; }
+        .container { background: #1e293b; padding: 20px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; width: 100%; max-width: 1150px; border: 1px solid #334155; }
+        
+        .header { position: relative; text-align: center; color: #f1c40f; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+
+        .timer-box { position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: rgba(15, 23, 42, 0.5); padding: 4px 12px; border-radius: 8px; border: 1px solid #f1c40f; display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+        #timer-label { font-size: 8px; color: #94a3b8; text-transform: uppercase; margin-bottom: -2px; }
+        #countdown { font-size: 16px; font-weight: bold; color: #f1c40f; font-family: monospace; }
+
+        /* Alert Box */
+        .pred-alert-box { position: absolute; right: 85px; top: 50%; transform: translateY(-50%); font-size: 22px; font-weight: 900; padding: 6px 14px; border-radius: 8px; display: none; letter-spacing: 2px; z-index: 1000; }
+        .alert-big { display: block; color: #22c55e; border: 3px solid #22c55e; background: rgba(34, 197, 94, 0.1); animation: big-flash 1.7s infinite; }
+        .alert-small { display: block; color: #ef4444; border: 3px solid #ef4444; background: rgba(239, 68, 68, 0.1); animation: small-flash 1.7s infinite; }
+        @keyframes big-flash { 0%, 100% { box-shadow: 0 0 5px #22c55e; opacity: 1; } 50% { box-shadow: 0 0 20px #22c55e; opacity: 0.6; } }
+        @keyframes small-flash { 0%, 100% { box-shadow: 0 0 5px #ef4444; opacity: 1; } 50% { box-shadow: 0 0 20px #ef4444; opacity: 0.6; } }
+
+        .dashboard-labels { display: flex; align-items: center; background: #1e293b; padding: 12px 0; border-bottom: 2px solid #334155; font-size: 13px; font-weight: bold; color: #f1c40f; text-transform: uppercase; position: sticky; top: 0; z-index: 100; }
+        .lbl-trx { width: 130px; text-align: center; }
+        .lbl-trend { width: 350px; text-align: center; }
+        .lbl-side { display: flex; flex-grow: 1; padding-left: 15px; gap: 5px; align-items: center; }
+
+        #chartData { max-height: 600px; overflow-y: auto; position: relative; }
+        #chartData::-webkit-scrollbar { width: 6px; }
+        #chartData::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        .row-grid { display: flex; align-items: center; height: 45px; border-bottom: 1px solid #334155; position: relative; z-index: 5; }
+        .row-label { width: 130px; font-size: 14px; color: #94a3b8; text-align: center; font-family: monospace; }
+        .cells { display: flex; flex: 0 0 auto; width: 350px; justify-content: center; gap: 4px; padding: 0 10px; align-items: center; border-left: 1px solid #334155; }
+        .cell { width: 26px; height: 26px; line-height: 26px; text-align: center; font-weight: bold; color: #475569; font-size: 14px; border-radius: 50%; z-index: 10; background: rgba(255,255,255,0.05); transition: all 0.3s; }
+        
+        /* Digit Colors */
+        .active-green { background-color: #22c55e !important; color: white !important; box-shadow: 0 0 10px #22c55e; }
+        .active-red { background-color: #ef4444 !important; color: white !important; box-shadow: 0 0 10px #ef4444; }
+        .active-purple { background-color: #a855f7 !important; color: white !important; box-shadow: 0 0 10px #a855f7; }
+
+        .side-info { display: flex; align-items: center; flex-grow: 1; padding-left: 15px; border-left: 1px solid #334155; gap: 5px; }
+        .text-s { width: 35px; font-weight: bold; color: #3498db; text-align: center; }
+        .text-b { width: 35px; font-weight: bold; color: #e67e22; text-align: center; }
+        .extra-text { width: 150px; font-size: 11px; color: #94a3b8; font-style: italic; overflow: hidden; }
+        .pred-text { width: 45px; color: #f1c40f; font-weight: bold; text-align: center; background: rgba(241, 196, 15, 0.1); border-radius: 4px; }
+        .win-text { color: #22c55e; background: rgba(34, 197, 94, 0.15); padding: 4px 8px; border-radius: 5px; font-weight: bold; width: 70px; text-align: center; }
+        .loss-text { color: #ef4444; background: rgba(239, 68, 68, 0.15); padding: 4px 8px; border-radius: 5px; font-weight: bold; width: 70px; text-align: center; }
+
+        canvas#lineCanvas { position: absolute; top: 0; left: 130px; pointer-events: none; z-index: 1; width: 350px !important; }
+
+        #candleContainer { margin-top: 20px; background: rgba(15, 23, 42, 0.5); border-radius: 12px; padding: 10px; border: 1px solid #334155; }
+        #chartHeader { color: #f1c40f; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
+        
+        .footer-info { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 15px; border-top: 1px solid #334155; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="chartBox">
+    <div class="header">
+        TRX TREND (LIVE SYNC)
+        <div id="bigSmallAlert" class="pred-alert-box"></div>
+        <div class="timer-box">
+            <span id="timer-label">Next</span>
+            <div id="countdown">60s</div>
+        </div>
+    </div>
+    
+    <div class="dashboard-labels">
+        <div class="lbl-trx">TRX ISSUE</div>
+        <div class="lbl-trend">TREND LINE</div>
+        <div class="lbl-side">
+            <span style="width:35px;">B/S</span>
+            <span style="width:150px;">MW STRATEGY</span>
+            <span style="width:45px;">PRED</span>
+            <span style="width:70px;">RESULT</span>
+            <span style="flex-grow:1; text-align: right; padding-right:15px;">WIN RATE</span>
+        </div>
+    </div>
+
+    <div id="chartDataContainer" style="position: relative;">
+        <canvas id="lineCanvas"></canvas>
+        <div id="chartData">
+            </div>
+    </div>
+
+    <div id="candleContainer">
+        <div id="chartHeader">
+            <span style="display:inline-block; width:8px; height:8px; background:#f1c40f; border-radius:50%;"></span>
+            TRX FX-STYLE CANDLE CHART
+        </div>
+        <div id="apexCandleChart"></div>
+    </div>
+    
+    <div class="footer-info">
+        <div id="connection-status"> Connecting...</div>
+        <div id="last-update">Last Update: --:--:--</div>
+    </div>
+</div>
+
+<script>
+    let timeLeft = 60;
+    let candleChart = null;
+
+    // ?? ? ???????????? Google Script ???? API Fetch ??? ????????????? (Background Loop)
+    function startRealTimeSync() {
+        setInterval(() => {
+            google.script.run.FETCH_TRX_DATA_AND_PREDICT(); 
+        }, 3000);
+    }
+
+    // ?? Sheet ??? Data ??????? UI ???????? ???????????
+    function loadTrendData() {
+        const conn = document.getElementById('connection-status');
+        google.script.run.withSuccessHandler(function(jsonRaw) {
+            const rawData = JSON.parse(jsonRaw);
+            if (rawData && rawData.length > 0) {
+                // ????????? ?? ?????????? ???????????? ?????????????
+                const displayData = rawData.slice(-15).reverse();
+                
+                renderModernTable(displayData);
+                renderApexCandleChart(rawData);
+                updateAlertBox(displayData[0]);
+
+                document.getElementById('last-update').innerText = "Last Update: " + new Date().toLocaleTimeString();
+                conn.innerText = "? Live Connected";
+                conn.style.color = "#22c55e";
+            }
+        }).getLatestData(); // Google Script ???? function ????
+    }
+
+    function renderModernTable(displayData) {
+        const output = document.getElementById('chartData');
+        let htmlRows = "";
+
+        displayData.forEach((item, rIdx) => {
+            const digit = parseInt(item[11]); // Digit (Column L)
+            const side = item[12];           // Side (Column M)
+            const strategy = item[16] || "Pattern";
+            const pred = item[14] || "-";
+            const result = item[15] || "---";
+            const winRate = item[18] || "0%";
+
+            const resClass = result === "WIN" ? "win-text" : result === "LOSS" ? "loss-text" : "";
+
+            let digitsHtml = "";
+            for (let i = 0; i <= 9; i++) {
+                const highlight = (i === digit) ? getActiveClass(digit) : "";
+                digitsHtml += `<div class="cell ${highlight}" id="dot-${rIdx}-${i}">${i}</div>`;
+            }
+
+            htmlRows += `
+                <div class="row-grid">
+                    <div class="row-label">${item[0]}</div>
+                    <div class="cells">${digitsHtml}</div>
+                    <div class="side-info">
+                        <div class="${side === 'B' ? 'text-b' : 'text-s'}">${side}</div>
+                        <div class="extra-text">${strategy}</div>
+                        <div class="pred-text">${pred}</div>
+                        <div class="${resClass}">${result}</div>
+                        <div style="flex-grow:1; text-align:right; padding-right:15px; color:#38bdf8; font-weight:bold;">${winRate}</div>
+                    </div>
+                </div>`;
+        });
+        output.innerHTML = htmlRows;
+        drawTrendLines(displayData);
+    }
+
+    function getActiveClass(digit) {
+        if ([0, 5].includes(digit)) return "active-purple";
+        if ([1, 3, 7, 9].includes(digit)) return "active-green";
+        return "active-red";
+    }
+
+    function drawTrendLines(displayData) {
+        const canvas = document.getElementById('lineCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('chartData');
+        
+        canvas.width = 350;
+        canvas.height = container.scrollHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+
+        let points = [];
+        displayData.forEach((item, i) => {
+            const dot = document.getElementById(`dot-${i}-${parseInt(item[11])}`);
+            if (dot) {
+                const x = dot.offsetLeft + (dot.offsetWidth / 2) - 130; // 130 is label width
+                const y = dot.offsetTop + (dot.offsetHeight / 2);
+                points.push({x, y});
+            }
+        });
+
+        points.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+    }
+
+    function renderApexCandleChart(rawData) {
+        const candleData = rawData.slice(-40).map((item, index) => {
+            const val = parseInt(item[11]);
+            const isBig = val >= 5;
+            const open = isBig ? 10.0 : 9.5;
+            const close = isBig ? 10.5 : 9.0;
+            return { x: new Date().getTime() - (40 - index) * 60000, y: [open, 11, 8, close] };
+        });
+
+        const options = {
+            series: [{ data: candleData }],
+            chart: { type: 'candlestick', height: 300, toolbar: { show: false }, background: 'transparent' },
+            xaxis: { type: 'datetime', labels: { style: { colors: '#94a3b8' } } },
+            yaxis: { show: false },
+            grid: { borderColor: '#334155' }
+        };
+
+        if (candleChart) {
+            candleChart.updateSeries([{ data: candleData }]);
+        } else {
+            candleChart = new ApexCharts(document.querySelector("#apexCandleChart"), options);
+            candleChart.render();
+        }
+    }
+
+    function updateAlertBox(latest) {
+        const box = document.getElementById('bigSmallAlert');
+        const pred = latest[14];
+        box.className = "pred-alert-box";
+        if (pred === "B") { box.innerText = "BIG"; box.classList.add('alert-big'); }
+        else if (pred === "S") { box.innerText = "SMALL"; box.classList.add('alert-small'); }
+        else { box.style.display = "none"; }
+    }
+
+    function startTimer() {
+        setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) { timeLeft = 60; loadTrendData(); }
+            document.getElementById('countdown').innerText = timeLeft + "s";
+        }, 1000);
+    }
+
+    window.onload = () => {
+        loadTrendData();
+        startTimer();
+        startRealTimeSync();
+        // ? ???????????? UI ??? Refresh ???????
+        setInterval(loadTrendData, 3000);
+    };
+</script>
+</body>
+</html>
